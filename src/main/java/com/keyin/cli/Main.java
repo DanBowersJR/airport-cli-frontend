@@ -52,9 +52,9 @@ public class Main {
         for (City city : cities) {
             System.out.println("\n" + city.getName() + " ->");
 
-            // ✅ fetch airports for this city from backend
+            // ✅ Correct endpoint: /airports/city/{id}
             List<Airport> airports = ApiClient.getList(
-                    "/cities/" + city.getId() + "/airports",
+                    "/airports/city/" + city.getId(),
                     new TypeReference<>() {}
             );
 
@@ -75,9 +75,9 @@ public class Main {
         for (Passenger p : passengers) {
             System.out.println("\n" + p.getFirstName() + " " + p.getLastName() + " flew on:");
 
-            // ✅ fetch aircraft for this passenger
+            // ✅ Correct endpoint: /aircraft/passenger/{id}
             List<Aircraft> aircraft = ApiClient.getList(
-                    "/passengers/" + p.getId() + "/aircraft",
+                    "/aircraft/passenger/" + p.getId(),
                     new TypeReference<>() {}
             );
 
@@ -98,7 +98,7 @@ public class Main {
         for (Aircraft a : aircraftList) {
             System.out.println("\n" + a.getType() + " (" + a.getAirlineName() + ") ->");
 
-            // ✅ fetch airports for this aircraft
+            // ✅ Endpoint is already correct
             List<Airport> airports = ApiClient.getList(
                     "/aircraft/" + a.getId() + "/airports",
                     new TypeReference<>() {}
@@ -121,7 +121,7 @@ public class Main {
         for (Passenger p : passengers) {
             System.out.println("\n" + p.getFirstName() + " " + p.getLastName() + " used airports:");
 
-            // ✅ fetch airports for this passenger
+            // ✅ Endpoint is already correct
             List<Airport> airports = ApiClient.getList(
                     "/passengers/" + p.getId() + "/airports",
                     new TypeReference<>() {}
