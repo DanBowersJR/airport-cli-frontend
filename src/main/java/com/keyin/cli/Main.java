@@ -7,6 +7,51 @@ import java.util.Scanner;
 public class Main {
     private static final Scanner scanner = new Scanner(System.in);
 
+    /**
+     * Production API implementation (calls your existing ApiClient).
+     * Tests will mock the BackendApi instead of hitting HTTP.
+     */
+    public interface BackendApi {
+        List<City> getCities() throws Exception;
+        List<Airport> getAirportsByCityId(long cityId) throws Exception;
+
+        List<Passenger> getPassengers() throws Exception;
+        List<Aircraft> getAircraftByPassenger(long passengerId) throws Exception;
+
+        List<Aircraft> getAircraft() throws Exception;
+        List<Airport> getAirportsByAircraft(long aircraftId) throws Exception;
+
+        List<Airport> getAirportsByPassenger(long passengerId) throws Exception;
+    }
+
+    /** Real implementation used by the CLI at runtime */
+    private static class RealApi implements BackendApi {
+        @Override public List<City> getCities() throws Exception {
+            return ApiClient.getList("/cities", new TypeReference<>() {});
+        }
+        @Override public List<Airport> getAirportsByCityId(long cityId) throws Exception {
+            return ApiClient.getList("/airports/city/" + cityId, new TypeReference<>() {});
+        }
+        @Override public List<Passenger> getPassengers() throws Exception {
+            return ApiClient.getList("/passengers", new TypeReference<>() {});
+        }
+        @Override public List<Aircraft> getAircraftByPassenger(long passengerId) throws Exception {
+            return ApiClient.getList("/aircraft/passenger/" + passengerId, new TypeReference<>() {});
+        }
+        @Override public List<Aircraft> getAircraft() throws Exception {
+            return ApiClient.getList("/aircraft", new TypeReference<>() {});
+        }
+        @Override public List<Airport> getAirportsByAircraft(long aircraftId) throws Exception {
+            return ApiClient.getList("/aircraft/" + aircraftId + "/airports", new TypeReference<>() {});
+        }
+        @Override public List<Airport> getAirportsByPassenger(long passengerId) throws Exception {
+            return ApiClient.getList("/passengers/" + passengerId + "/airports", new TypeReference<>() {});
+        }
+    }
+
+    // The instance the CLI uses (tests will pass a mock instead)
+    static final BackendApi api = new RealApi();
+
     public static void main(String[] args) {
         boolean running = true;
         while (running) {
@@ -28,10 +73,10 @@ public class Main {
 
             try {
                 switch (choice) {
-                    case 1 -> showAirportsByCity();
-                    case 2 -> showAircraftByPassenger();
-                    case 3 -> showAirportsByAircraft();
-                    case 4 -> showAirportsByPassenger();
+                    case 1 -> showAirportsByCity(api);       // uses injected api
+                    case 2 -> showAircraftByPassenger(api);
+                    case 3 -> showAirportsByAircraft(api);
+                    case 4 -> showAirportsByPassenger(api);
                     case 5 -> {
                         System.out.println("Exiting CLI...");
                         running = false;
@@ -45,20 +90,15 @@ public class Main {
         scanner.close();
     }
 
-    // Q1: What airports are in a city?
-    private static void showAirportsByCity() throws Exception {
-        List<City> cities = ApiClient.getList("/cities", new TypeReference<>() {});
+    // ===== Testable helpers (each depends ONLY on BackendApi) =====
 
+    // Q1: What airports are in a city?
+    static void showAirportsByCity(BackendApi api) throws Exception {
+        List<City> cities = api.getCities();
         for (City city : cities) {
             System.out.println("\n" + city.getName() + " ->");
-
-            // ✅ Correct endpoint: /airports/city/{id}
-            List<Airport> airports = ApiClient.getList(
-                    "/airports/city/" + city.getId(),
-                    new TypeReference<>() {}
-            );
-
-            if (airports.isEmpty()) {
+            List<Airport> airports = api.getAirportsByCityId(city.getId());
+            if (airports == null || airports.isEmpty()) {
                 System.out.println("   No airports found.");
             } else {
                 for (Airport a : airports) {
@@ -69,19 +109,12 @@ public class Main {
     }
 
     // Q2: What aircraft has each passenger flown on?
-    private static void showAircraftByPassenger() throws Exception {
-        List<Passenger> passengers = ApiClient.getList("/passengers", new TypeReference<>() {});
-
+    static void showAircraftByPassenger(BackendApi api) throws Exception {
+        List<Passenger> passengers = api.getPassengers();
         for (Passenger p : passengers) {
             System.out.println("\n" + p.getFirstName() + " " + p.getLastName() + " flew on:");
-
-            // ✅ Correct endpoint: /aircraft/passenger/{id}
-            List<Aircraft> aircraft = ApiClient.getList(
-                    "/aircraft/passenger/" + p.getId(),
-                    new TypeReference<>() {}
-            );
-
-            if (aircraft.isEmpty()) {
+            List<Aircraft> aircraft = api.getAircraftByPassenger(p.getId());
+            if (aircraft == null || aircraft.isEmpty()) {
                 System.out.println("   No aircraft found.");
             } else {
                 for (Aircraft a : aircraft) {
@@ -92,19 +125,12 @@ public class Main {
     }
 
     // Q3: What airports does an aircraft use?
-    private static void showAirportsByAircraft() throws Exception {
-        List<Aircraft> aircraftList = ApiClient.getList("/aircraft", new TypeReference<>() {});
-
+    static void showAirportsByAircraft(BackendApi api) throws Exception {
+        List<Aircraft> aircraftList = api.getAircraft();
         for (Aircraft a : aircraftList) {
             System.out.println("\n" + a.getType() + " (" + a.getAirlineName() + ") ->");
-
-            // ✅ Endpoint is already correct
-            List<Airport> airports = ApiClient.getList(
-                    "/aircraft/" + a.getId() + "/airports",
-                    new TypeReference<>() {}
-            );
-
-            if (airports.isEmpty()) {
+            List<Airport> airports = api.getAirportsByAircraft(a.getId());
+            if (airports == null || airports.isEmpty()) {
                 System.out.println("   No airports found.");
             } else {
                 for (Airport ap : airports) {
@@ -115,19 +141,12 @@ public class Main {
     }
 
     // Q4: What airports has a passenger used?
-    private static void showAirportsByPassenger() throws Exception {
-        List<Passenger> passengers = ApiClient.getList("/passengers", new TypeReference<>() {});
-
+    static void showAirportsByPassenger(BackendApi api) throws Exception {
+        List<Passenger> passengers = api.getPassengers();
         for (Passenger p : passengers) {
             System.out.println("\n" + p.getFirstName() + " " + p.getLastName() + " used airports:");
-
-            // ✅ Endpoint is already correct
-            List<Airport> airports = ApiClient.getList(
-                    "/passengers/" + p.getId() + "/airports",
-                    new TypeReference<>() {}
-            );
-
-            if (airports.isEmpty()) {
+            List<Airport> airports = api.getAirportsByPassenger(p.getId());
+            if (airports == null || airports.isEmpty()) {
                 System.out.println("   No airports found.");
             } else {
                 for (Airport ap : airports) {
